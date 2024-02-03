@@ -1,21 +1,53 @@
 import numpy as np
 import cv2
-import cv2.aruco as aruco
- 
- 
-'''
-    drawMarker(...)
-        drawMarker(dictionary, id, sidePixels[, img[, borderBits]]) -> img
-'''
- 
-aruco_dict = aruco.Dictionary_get(aruco.DICT_6X6_1000) #creating aruco dictionary...250 markers and a marker size of 6x6 bits
-print(aruco_dict)
-# second parameter is id number
-# last parameter is total image size
-img = aruco.drawMarker(aruco_dict, 650, 400) # 2-- marker id, as the chose dictionary is upto 250...so the id no ranges from 0 to 249....and 700x700 is the pixel size
-print img.shape
-cv2.imwrite("Aruco_ids/test_marker11_big.jpg", img)
-print img.shape
-cv2.imshow('frame',img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+import os
+VIDEO_EXT = ['.jpg']
+
+def get_video_list(path):
+    video_names = []
+    for maindir, subdir, file_name_list in os.walk(path):
+        for filename in file_name_list:
+            apath = os.path.join(maindir, filename)
+            ext = os.path.splitext(apath)[1]
+            if ext in VIDEO_EXT:
+                video_names.append(apath)
+    return video_names
+
+def detector_marker(img, aruco_dict, parameters, cameraMatrix, distCoeffs):
+    fname = img.split(os.sep)[-1]
+    frame = cv2.imread(img)
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # lists of ids and the corners beloning to each id# We call the function 'cv2.aruco.detectMarkers()'
+    corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(gray_frame, aruco_dict, parameters=parameters)
+
+    # Draw detected markers:
+    frame = cv2.aruco.drawDetectedMarkers(image=frame, corners=corners, ids=ids, borderColor=(0, 255, 0))
+
+    # Draw rejected markers:
+    frame = cv2.aruco.drawDetectedMarkers(image=frame, corners=rejectedImgPoints, borderColor=(0, 0, 255))
+
+    if ids is not None:
+        # rvecs and tvecs are the rotation and translation vectors respectively, for each of the markers in corners.
+        rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(corners, 1, cameraMatrix, distCoeffs)
+
+        for rvec, tvec in zip(rvecs, tvecs):
+            cv2.aruco.drawAxis(frame, cameraMatrix, distCoeffs, rvec, tvec, 1)
+
+    cv2.imwrite(f'./result/{fname}')
+
+def generator(aruco_dict):
+    for id in range(100):
+        img_size = 700 # 定义最终图像的大小
+        marker_img = cv2.aruco.generateImageMarker(aruco_dict, id, img_size)
+        cv2.imwrite(f'./raw_4x4_250/{str(id).zfill(6)}.jpg',marker_img)
+
+
+
+if __name__ =='__main__':
+
+    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
+    # aruco_dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_7X7_250)
+
+    # Create parameters to be used when detecting markers:
+    generator(aruco_dict)
